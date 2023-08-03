@@ -69,6 +69,9 @@ public final class InitPackage {
     /// The options for package to create.
     let options: InitPackageOptions
 
+    /// Configuration from the used toolchain.
+    let installedSwiftPMConfiguration: InstalledSwiftPMConfiguration
+
     /// The name of the package to create.
     let pkgname: String
 
@@ -85,12 +88,14 @@ public final class InitPackage {
         name: String,
         packageType: PackageType,
         destinationPath: AbsolutePath,
+        installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
     ) throws {
         try self.init(
             name: name,
             options: InitPackageOptions(packageType: packageType),
             destinationPath: destinationPath,
+            installedSwiftPMConfiguration: installedSwiftPMConfiguration,
             fileSystem: fileSystem
         )
     }
@@ -100,12 +105,14 @@ public final class InitPackage {
         name: String,
         options: InitPackageOptions,
         destinationPath: AbsolutePath,
+        installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
     ) throws {
         self.options = options
         self.pkgname = name
         self.moduleName = name.spm_mangledToC99ExtendedIdentifier()
         self.destinationPath = destinationPath
+        self.installedSwiftPMConfiguration = installedSwiftPMConfiguration
         self.fileSystem = fileSystem
     }
 
@@ -260,7 +267,7 @@ public final class InitPackage {
                 pkgParams.append("""
                     dependencies: [
                         // Depend on the latest Swift 5.9 prerelease of SwiftSyntax
-                        .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0-swift-5.9-DEVELOPMENT-SNAPSHOT-2023-04-25-b"),
+                        .package(url: "https://github.com/apple/swift-syntax.git", from: "\(self.installedSwiftPMConfiguration.swiftSyntaxVersionForMacroTemplate.description)"),
                     ]
                 """)
             }

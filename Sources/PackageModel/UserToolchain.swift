@@ -76,6 +76,8 @@ public final class UserToolchain: Toolchain {
 
     public let isSwiftDevelopmentToolchain: Bool
 
+    public let installedSwiftPMConfiguration: InstalledSwiftPMConfiguration
+
     /// Returns the runtime library for the given sanitizer.
     public func runtimeLibrary(for sanitizer: Sanitizer) throws -> AbsolutePath {
         // FIXME: This is only for SwiftPM development time support. It is OK
@@ -456,7 +458,8 @@ public final class UserToolchain: Toolchain {
         swiftSDK: SwiftSDK,
         environment: EnvironmentVariables = .process(),
         searchStrategy: SearchStrategy = .default,
-        customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil
+        customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
+        customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil
     ) throws {
         self.swiftSDK = swiftSDK
         self.environment = environment
@@ -498,6 +501,18 @@ public final class UserToolchain: Toolchain {
         #else
         self.isSwiftDevelopmentToolchain = false
         #endif
+
+        if let customInstalledSwiftPMConfiguration = customInstalledSwiftPMConfiguration {
+            self.installedSwiftPMConfiguration = customInstalledSwiftPMConfiguration
+        } else {
+            let path = self.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: ["share", "pm", "config.json"])
+            if localFileSystem.exists(path) {
+                self.installedSwiftPMConfiguration = try JSONDecoder.makeWithDefaults().decode(path: path, fileSystem: localFileSystem, as: InstalledSwiftPMConfiguration.self)
+            } else {
+                // We *could* eventually make this an error, but not for a few releases.
+                self.installedSwiftPMConfiguration = InstalledSwiftPMConfiguration(version: 0, swiftSyntaxVersionForMacroTemplate: .init(major: 509, minor: 0, patch: 0))
+            }
+        }
 
         // Use the triple from destination or compute the host triple using swiftc.
         var triple = try swiftSDK.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
