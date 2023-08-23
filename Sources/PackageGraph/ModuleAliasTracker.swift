@@ -141,6 +141,8 @@ class ModuleAliasTracker {
         fillInRest(package: rootPkg)
     }
 
+    var emittedDiagnosticsFor = [String]()
+
     // Propagate defined aliases upstream. If they are chained, the final
     // alias value will be applied
     func propagate(productID: String,
@@ -160,6 +162,17 @@ class ModuleAliasTracker {
         if let curDirectTargets = productToDirectTargets[productID] {
             var relevantTargets = curDirectTargets.map{$0.recursiveDependentTargets()}.flatMap{$0}
             relevantTargets.append(contentsOf: curDirectTargets)
+
+            let relevantTargetNames = relevantTargets.map { $0.name }
+            productAliases.forEach { productAlias in
+                guard !emittedDiagnosticsFor.contains(productAlias.identifierForDiagnosticsTracking) else {
+                    return
+                }
+                if !relevantTargetNames.contains(productAlias.name) {
+                    observabilityScope.emit(error: "module alias for target '\(productAlias.name)', declared in '\(productAlias.originPackage)', does not match any recursive target dependency of '\(productID)'")
+                    emittedDiagnosticsFor.append(productAlias.identifierForDiagnosticsTracking)
+                }
+            }
 
             for relTarget in relevantTargets {
                 if let val = lookupAlias(key: relTarget.name, in: aliasBuffer) {
@@ -429,5 +442,11 @@ extension Target {
             nextDeps = nextTargets.map{$0.dependencies}.flatMap{$0}
         }
         return list
+    }
+}
+
+fileprivate extension ModuleAliasModel {
+    var identifierForDiagnosticsTracking: String {
+        return "\(self.name)-\(self.alias)-\(self.consumingPackage.description)-\(self.originPackage.description)"
     }
 }
